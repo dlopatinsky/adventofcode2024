@@ -12,15 +12,8 @@ import (
 
 type Report []int
 
-func ReadReports (filePath string) ([]Report, error) {
-    file, err := os.Open(filePath)
-    if err != nil {
-	return nil, err
-    }
-    defer file.Close()
-
-    var reports []Report
-    scanner := bufio.NewScanner(file)
+func CountSafeReports(scanner bufio.Scanner, maxUnsafeLevels int) (int, error) {
+    count := 0
     for scanner.Scan() {
 	line := scanner.Text()
 	slice := strings.Fields(line)
@@ -28,33 +21,15 @@ func ReadReports (filePath string) ([]Report, error) {
 	for i, v := range slice {
 	    n, err := strconv.Atoi(v)
 	    if err != nil {
-		return nil, fmt.Errorf("Invalid number: %s", v)
+		return 0, fmt.Errorf("Invalid number: %s", v)
 	    }
 	    report[i] = n
 	}
-	reports = append(reports, report)
-    }
-    return reports, nil
-}
-
-func CountSafeReports(reports []Report) int {
-    count := 0
-    for _, r := range reports {
-	if r.UnsafeLevelCount() == 0 {
+	if report.UnsafeLevelCount() <= maxUnsafeLevels {
 	    count++
 	}
     }
-    return count
-}
-
-func CountSafeReportsWithProblemDampener(reports []Report) int {
-    count := 0
-    for _, r := range reports {
-	if r.UnsafeLevelCount() < 2 {
-	    count++
-	}
-    }
-    return count
+    return count, nil
 }
 
 func (r Report) UnsafeLevelCount() int {
@@ -112,17 +87,25 @@ func main() {
     taskNum := flag.Int("t", 0, "Task number (0-1)")
     flag.Parse()
     
-    reports, err := ReadReports(*filePath)
+    file, err := os.Open(*filePath)
     if err != nil {
-        log.Fatalf("Error reading reports: %v", err)
+	log.Fatalf("Error reading report file: %v", err)
     }
+    defer file.Close()
+    scanner := bufio.NewScanner(file)
 
     switch *taskNum {
     case 0:
-	count := CountSafeReports(reports)
+	count, err := CountSafeReports(*scanner, 0)
+	if err != nil {
+	    log.Fatal(err)
+	}
 	fmt.Println(count)
     case 1:
-	count := CountSafeReportsWithProblemDampener(reports)
+	count, err := CountSafeReports(*scanner, 1)
+	if err != nil {
+	    log.Fatal(err)
+	}
 	fmt.Println(count)
     default:
         log.Fatalf("Unknown task number: %d", *taskNum)
